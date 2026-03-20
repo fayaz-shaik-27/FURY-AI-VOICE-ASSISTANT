@@ -1,5 +1,5 @@
 """
-FastAPI backend for Aria AI Voice Assistant web interface.
+FastAPI backend for Fury AI Voice Assistant web interface.
 © 2024 Fayaz Ahmed Shaik. All rights reserved.
 IMPORTANT: load_dotenv() MUST run before importing ai_handler/tts/stt
            because those modules read env vars at import time.

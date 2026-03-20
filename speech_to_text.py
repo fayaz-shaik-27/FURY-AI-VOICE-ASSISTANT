@@ -19,9 +19,10 @@ logger = logging.getLogger(__name__)
 # ──────────────────────────────────────────────────────────────
 #  Load the Whisper model once at import time.
 #  Model size comes from .env (tiny/base/small/medium/large).
-#  'base' is recommended for free-tier servers.
+#  'tiny' is recommended for free-tier servers (uses ~150MB RAM).
+#  'base' uses ~500MB RAM and may crash on Render Free Tier.
 # ──────────────────────────────────────────────────────────────
-_WHISPER_MODEL_SIZE = os.getenv("WHISPER_MODEL", "base")
+_WHISPER_MODEL_SIZE = os.getenv("WHISPER_MODEL", "tiny")
 _model = None  # Lazy-loaded on first use to save startup time
 
 
