@@ -1,122 +1,86 @@
-# 💎 Fury AI – Gemini-Inspired Voice Assistant
+# 🎙️ Fury AI – Voice Assistant
 
-A premium, production-ready AI Voice Assistant with a stunning Gemini-inspired interface.  
-**Talk to Fury** → Get a smart **voice reply** in real-time — all from your browser.
-
-![Fury AI Redesign](https://raw.githubusercontent.com/fayaz-shaik-27/Voice-Automation/main/frontend/public/sh_aria_ui.png) 
-*(Replace with your actual hosted screenshot later)*
+> A Gemini-inspired AI voice assistant that lives in your browser.  
+> Built with FastAPI, OpenAI Whisper, Groq (Llama 3), and gTTS.  
+> © 2024 Fayaz Ahmed Shaik. All rights reserved.
 
 ---
 
 ## ✨ Features
 
-- 🎨 **Gemini UI** – Stunning glossy design with glassmorphism and smooth animations.
-- 🎙️ **Interactive Voice** – Real-time waveform bars: **Red** (listening) → **Blue** (speaking).
-- 🧠 **Dynamic AI** – Powered by **Groq (Llama 3)** with per-user conversation memory.
-- 🔊 **Clear Speech** – High-quality voice synthesis via **gTTS**.
-- 🚀 **Monolith Architecture** – One FastAPI service hosts both the React frontend and the AI backend.
-- 🛡️ **Privacy Focused** – Runs OpenAI Whisper locally for Speech-to-Text.
+- 🎙️ **Voice Input** – Record your voice directly in the browser
+- 🧠 **AI Intelligence** – Powered by Groq's Llama 3 (free tier)
+- 🔊 **Voice Output** – AI replies are spoken back to you
+- 💬 **Conversation Memory** – Remembers your chat history per session
+- 🌐 **Fully Web-Based** – No app or Telegram required
 
 ---
 
-## 🏗️ Architecture
+## 🛠️ Tech Stack
 
-```mermaid
-graph LR
-    User([User Voice]) --> Browser;
-    Browser -->|WebM Audio| FastAPI;
-    FastAPI -->|Whisper| STT[Speech-to-Text];
-    STT -->|Transcript| Groq[Groq Llama 3];
-    Groq -->|AI Response| TTS[gTTS Text-to-Speech];
-    TTS -->|MP3 Audio| FastAPI;
-    FastAPI -->|Base64| Browser;
-    Browser -->|Audio Playback| User;
-```
+| Layer | Technology |
+|---|---|
+| **Backend** | FastAPI + Uvicorn |
+| **Speech-to-Text** | OpenAI Whisper (`tiny` model) |
+| **AI / LLM** | Groq API (Llama 3) |
+| **Text-to-Speech** | gTTS |
+| **Frontend** | React + Vite |
+| **Deployment** | Render |
 
 ---
 
-## 📁 Project Structure
+## 🚀 Local Setup
 
-```
-Voice Automation/
-├── api.py               # Optimized Monolith (serves UI + AI API)
-├── ai_handler.py        # Groq LLM logic & memory
-├── speech_to_text.py    # Local Whisper (handles WebM/OGG)
-├── text_to_speech.py    # gTTS synthesis
-├── requirements.txt     # Python backend dependencies
-├── .env                 # API Keys & Config
-└── frontend/            # React + Vite (Gemini UI)
-    ├── src/             # Premium Design System
-    │   ├── App.jsx      # Voice logic & Waveform animation
-    │   └── index.css    # Glossy Vanilla CSS styles
-    └── dist/            # Production build (served by api.py)
-```
-
----
-
-## ⚡ Quick Start (Local)
-
-### 1. Prerequisites
-- **Python 3.10+**
-- **Node.js** (for frontend build)
-- **FFmpeg** (required for audio conversion)
-  - Windows: `choco install ffmpeg`
-  - Mac: `brew install ffmpeg`
-
-### 2. Set Up Environment
-Copy `.env.sample` to `.env` and add your keys:
-```env
-TELEGRAM_BOT_TOKEN=...
-GROQ_API_KEY=...
-```
-
-### 3. Launch (Two Terminals)
-
-**Terminal A: Backend**
+### 1. Clone the repo
 ```bash
-# Install dependencies
-pip install -r requirements.txt
-# Run API
-python api.py
+git clone https://github.com/fayaz-shaik-27/FURY-AI-Gemini-Inspired.git
+cd "FURY-AI-Gemini-Inspired"
 ```
 
-**Terminal B: Frontend**
+### 2. Create virtualenv & install dependencies
+```bash
+python -m venv venv
+.\venv\Scripts\python -m pip install -r requirements.txt
+```
+
+### 3. Set your environment variables
+```bash
+cp .env.sample .env
+# Edit .env and add your GROQ_API_KEY
+```
+
+### 4. Run the backend
+```bash
+.\venv\Scripts\python api.py
+```
+
+### 5. Run the frontend (new terminal)
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
-Open **http://localhost:5173** and start talking!
+
+Visit: **[http://localhost:5173](http://localhost:5173)**
 
 ---
 
-## 🌐 Deployment (Render)
+## 🌍 Deploy on Render
 
-Deploy this project as a single **Web Service** on Render:
-
-1.  **Connect Repo**: Point to this GitHub repository.
-2.  **Environment**: Python 3
-3.  **Build Command**:
-    ```bash
-    cd frontend && npm install && npm run build && cd .. && pip install -r requirements.txt
-    ```
-4.  **Start Command**:
-    ```bash
-    python api.py
-    ```
-5.  **Environment Variables**:
-    - `GROQ_API_KEY`: (Your Groq key)
-    - `PORT`: `8000`
-
----
-
-
----
-
-## 🛠️ Tech Stack
-- **Frontend**: React, Vite, Framer Motion, Vanilla CSS.
-- **Backend**: FastAPI, Uvicorn.
-- **AI**: Groq (Llama 3), OpenAI Whisper (Tiny/Base), gTTS.
+1. Push to GitHub
+2. Create a **Web Service** on [render.com](https://render.com)
+3. Set the **Build Command**:
+   ```
+   cd frontend && npm install && npx vite build && cd .. && pip install -r requirements.txt
+   ```
+4. Set the **Start Command**:
+   ```
+   python api.py
+   ```
+5. Add **Environment Variables**:
+   - `GROQ_API_KEY` = your key from [console.groq.com](https://console.groq.com)
+   - `WHISPER_MODEL` = `tiny`
+   - `ASSISTANT_NAME` = `Fury AI`
 
 ---
 

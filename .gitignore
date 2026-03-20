@@ -11,6 +11,7 @@ __pycache__/
 voicemails.db
 
 # ── Temp Audio ────────────────────────────────────────────────
+temp_audio_web/
 audio_output/
 *.mp3
 *.ogg

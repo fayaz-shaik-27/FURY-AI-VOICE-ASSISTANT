@@ -65,6 +65,7 @@ _MAX_HISTORY_PAIRS = 10  # 10 pairs = 20 messages kept
 # ──────────────────────────────────────────────────────────────
 
 _INTENT_PATTERNS: dict[str, list[str]] = {
+    "creator": ["who is your creator", "who created you", "who made you", "who is your developer"],
     "greeting": ["hi", "hello", "hey", "good morning", "good afternoon", "good evening", "howdy", "sup"],
     "farewell": ["bye", "goodbye", "see you", "take care", "later", "ciao", "gotta go"],
     "gratitude": ["thank", "thanks", "thank you", "appreciate", "cheers"],
@@ -72,7 +73,6 @@ _INTENT_PATTERNS: dict[str, list[str]] = {
     "question": ["what", "when", "where", "why", "how", "who", "which", "?"],
     "affirmation": ["yes", "yeah", "yep", "sure", "okay", "ok", "absolutely", "of course"],
     "negation": ["no", "nope", "nah", "not really", "i don't think so"],
-    "creator": ["who is your creator", "who created you", "who made you", "who is your developer"],
 }
 
 

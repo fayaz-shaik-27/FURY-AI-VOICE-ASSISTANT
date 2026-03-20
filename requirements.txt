@@ -1,32 +1,28 @@
 # ─────────────────────────────────────────────────────────────
-#  AI Voice Assistant – Telegram  |  requirements.txt
+#  Fury AI Voice Assistant  |  requirements.txt
+#  © 2024 Fayaz Ahmed Shaik. All rights reserved.
 # ─────────────────────────────────────────────────────────────
 
-# ── Telegram bot framework ────────────────────────────────────
-python-telegram-bot>=21.10
-
-# ── Speech-to-Text (Whisper) ──────────────────────────────────
-openai-whisper
-
-# ── Audio conversion (ogg → wav for Whisper) ─────────────────
-pydub
-audioop-lts>=0.2.1
+# ── Web Framework ─────────────────────────────────────────────
 fastapi>=0.100.0
 uvicorn>=0.23.0
 python-multipart>=0.0.6
-          # Required for Python 3.13+ (audioop was removed)
+
+# ── Speech-to-Text (Whisper) ──────────────────────────────────
+# Runs fully locally — no API key needed.
+# Uses 'tiny' model on production for low memory usage.
+openai-whisper
+
+# ── Audio Processing ──────────────────────────────────────────
+# pydub: convert browser audio (webm) to WAV for Whisper
+# ffmpeg binary is pre-installed on Render — no extra step needed.
+pydub
 
 # ── Text-to-Speech ────────────────────────────────────────────
 gTTS
 
-# ── AI / LLM (Groq free tier – no credit card needed) ────────
+# ── AI / LLM (Groq — completely free tier) ───────────────────
 groq
 
 # ── Environment variable management ──────────────────────────
 python-dotenv
-
-# ── Async HTTP (used internally by python-telegram-bot) ───────
-httpx
-
-# ── Utilities ─────────────────────────────────────────────────
-ffmpeg-python       # Python wrapper – ffmpeg binary must be installed separately

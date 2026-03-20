@@ -8,14 +8,13 @@ import os
 import uuid
 import logging
 import base64
-import tempfile
 
 # ── Load env variables FIRST before any other local imports ──────────────────
 from dotenv import load_dotenv
 load_dotenv()
 
 # ── FastAPI imports ───────────────────────────────────────────────────────────
-from fastapi import FastAPI, UploadFile, File, HTTPException, Query
+from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -120,7 +119,8 @@ async def process_voice(file: UploadFile = File(...)):
         raise
     except Exception as e:
         logger.exception(f"[{session_id}] Unexpected error: {e}")
-        raise HTTPException(status_code=500, detail=f"Server error: {str(e)}")
+        # Return the actual error message for local debugging
+        raise HTTPException(status_code=500, detail=str(e))
 
     finally:
         if os.path.exists(input_path):
