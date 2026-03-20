@@ -1,0 +1,28 @@
+# ─────────────────────────────────────────────────────────────
+#  AI Voice Assistant – Telegram  |  requirements.txt
+# ─────────────────────────────────────────────────────────────
+
+# ── Telegram bot framework ────────────────────────────────────
+python-telegram-bot>=21.10
+
+# ── Speech-to-Text (Whisper) ──────────────────────────────────
+openai-whisper
+
+# ── Audio conversion (ogg → wav for Whisper) ─────────────────
+pydub
+audioop-lts          # Required for Python 3.13+ (audioop was removed)
+
+# ── Text-to-Speech ────────────────────────────────────────────
+gTTS
+
+# ── AI / LLM (Groq free tier – no credit card needed) ────────
+groq
+
+# ── Environment variable management ──────────────────────────
+python-dotenv
+
+# ── Async HTTP (used internally by python-telegram-bot) ───────
+httpx
+
+# ── Utilities ─────────────────────────────────────────────────
+ffmpeg-python       # Python wrapper – ffmpeg binary must be installed separately
