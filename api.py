@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # ── FastAPI imports ───────────────────────────────────────────────────────────
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -66,6 +66,7 @@ async def health_check():
 FRONTEND_DIST = os.path.join(os.getcwd(), "frontend", "dist")
 
 @app.get("/", include_in_schema=False)
+@app.head("/", include_in_schema=False)
 async def serve_index():
     if os.path.exists(os.path.join(FRONTEND_DIST, "index.html")):
         return FileResponse(os.path.join(FRONTEND_DIST, "index.html"))

@@ -33,7 +33,7 @@ _ASSISTANT_NAME = os.getenv("ASSISTANT_NAME", "Fury AI")
 # ──────────────────────────────────────────────────────────────
 _SYSTEM_PROMPT = f"""
 You are {_ASSISTANT_NAME}, a warm, friendly, and highly intelligent AI voice assistant.
-Your job is to help users via voice messages on Telegram – just like a helpful personal assistant.
+Your job is to help users via voice and text messages – just like a helpful personal assistant.
 
 Personality guidelines:
 - Be conversational, empathetic, and concise (keep replies under 3 sentences when possible).
@@ -48,13 +48,13 @@ Today's date is {datetime.now().strftime("%A, %B %d, %Y")}.
 
 # ──────────────────────────────────────────────────────────────
 #  Per-user conversation memory
-#  Key: telegram user_id (int)
+#  Key: platform user_id (int or str)
 #  Value: list of {"role": "user"|"assistant", "content": str}
 #
 #  Note: This is in-memory only. Memory is lost on bot restart.
 #  For persistence, swap this dict with a SQLite/Redis store.
 # ──────────────────────────────────────────────────────────────
-_memory: dict[int, list[dict]] = defaultdict(list)
+_memory: dict[str | int, list[dict]] = defaultdict(list)
 
 # ──────────────────────────────────────────────────────────────
 #  SQLite Database Setup for Voicemails
@@ -68,7 +68,7 @@ def _init_db():
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS voicemails (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER,
+            user_id TEXT,
             username TEXT,
             transcript TEXT,
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -80,7 +80,7 @@ def _init_db():
 # Initialize DB on import
 _init_db()
 
-def save_voicemail(user_id: int, username: str, transcript: str):
+def save_voicemail(user_id: str | int, username: str, transcript: str):
     """Saves a transcribed voice message to the database as a voicemail."""
     try:
         conn = sqlite3.connect(_DB_PATH)
@@ -152,12 +152,12 @@ def detect_intent(text: str) -> str:
 #  Memory helpers
 # ──────────────────────────────────────────────────────────────
 
-def get_history(user_id: int) -> list[dict]:
+def get_history(user_id: str | int) -> list[dict]:
     """Returns the stored conversation history for a user."""
     return _memory[user_id]
 
 
-def add_to_history(user_id: int, role: str, content: str) -> None:
+def add_to_history(user_id: str | int, role: str, content: str) -> None:
     """
     Appends a message to the user's history and trims older messages
     to stay within the _MAX_HISTORY_PAIRS limit.
@@ -170,7 +170,7 @@ def add_to_history(user_id: int, role: str, content: str) -> None:
         _memory[user_id] = _memory[user_id][-max_messages:]
 
 
-def clear_history(user_id: int) -> None:
+def clear_history(user_id: str | int) -> None:
     """Wipes conversation memory for a user. Useful for /reset command."""
     _memory[user_id] = []
     logger.info(f"Memory cleared for user {user_id}.")
@@ -180,7 +180,7 @@ def clear_history(user_id: int) -> None:
 #  Main AI response function
 # ──────────────────────────────────────────────────────────────
 
-def generate_response(user_id: int, user_text: str) -> str:
+def generate_response(user_id: str | int, user_text: str) -> str:
     """
     Generates an AI response using Groq LLM, with full conversation memory.
 
