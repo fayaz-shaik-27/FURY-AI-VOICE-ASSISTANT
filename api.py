@@ -33,7 +33,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # ── App ───────────────────────────────────────────────────────────────────────
-app = FastAPI(title="Aria AI Voice Assistant API", version="1.0.0")
+app = FastAPI(title="Fury AI Voice Assistant API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -57,7 +57,7 @@ class VoiceResponse(BaseModel):
 # ── Root / Health Check ────────────────────────────────────────────────────────
 @app.get("/health")
 async def health_check():
-    return {"status": "ok", "message": "Aria AI Backend is running ✅"}
+    return {"status": "ok", "message": "Fury AI Backend is running ✅"}
 
 
 # ── Serve Frontend ────────────────────────────────────────────────────────────
@@ -69,7 +69,7 @@ FRONTEND_DIST = os.path.join(os.getcwd(), "frontend", "dist")
 async def serve_index():
     if os.path.exists(os.path.join(FRONTEND_DIST, "index.html")):
         return FileResponse(os.path.join(FRONTEND_DIST, "index.html"))
-    return {"message": "Aria AI API is live. (Frontend not built yet)"}
+    return {"message": "Fury AI API is live. (Frontend not built yet)"}
 
 if os.path.exists(FRONTEND_DIST):
     app.mount("/", StaticFiles(directory=FRONTEND_DIST), name="ui")

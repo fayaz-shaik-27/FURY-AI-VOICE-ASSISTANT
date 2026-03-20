@@ -96,7 +96,7 @@ function MessageBubble({ msg, index }) {
 export default function App() {
   const [orbState, setOrbState] = useState('idle');   // idle | recording | processing | speaking
   const [history, setHistory] = useState([
-    { role: 'ai', text: 'Hi! I\'m Aria, your AI voice assistant. Tap the mic to start talking.' }
+    { role: 'ai', text: 'Hi! I\'m Fury AI, your AI voice assistant. Tap the mic to start talking.' }
   ]);
   const [statusText, setStatusText] = useState('Tap the microphone to begin');
   const [error, setError] = useState('');
@@ -144,7 +144,7 @@ export default function App() {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop();
       setOrbState('processing');
-      setStatusText('Aria is thinking…');
+      setStatusText('Fury AI is thinking…');
     }
   }, []);
 
@@ -169,7 +169,7 @@ export default function App() {
       // Play audio response
       if (data.audio_base64) {
         setOrbState('speaking');
-        setStatusText('Aria is speaking…');
+        setStatusText('Fury AI is speaking…');
         const audio = new Audio(`data:audio/mp3;base64,${data.audio_base64}`);
         audioRef.current = audio;
         audio.onended = () => {
@@ -222,7 +222,7 @@ export default function App() {
       <header className="app-header">
         <div className="logo">
           <div className="logo-gem" />
-          <span className="logo-text">Aria <span className="logo-sub">AI</span></span>
+          <span className="logo-text">Fury <span className="logo-sub">AI</span></span>
         </div>
         <nav className="header-nav">
           <button className="nav-btn" onClick={clearHistory} title="Clear chat">

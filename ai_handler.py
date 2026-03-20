@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 # ──────────────────────────────────────────────────────────────
 _client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 _MODEL = os.getenv("GROQ_MODEL", "llama3-8b-8192")
-_ASSISTANT_NAME = os.getenv("ASSISTANT_NAME", "Aria")
+_ASSISTANT_NAME = os.getenv("ASSISTANT_NAME", "Fury AI")
 
 # ──────────────────────────────────────────────────────────────
 #  System prompt – personality & instructions for the LLM

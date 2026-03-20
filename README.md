@@ -1,9 +1,9 @@
-# 💎 Aria AI – Gemini-Inspired Voice Assistant
+# 💎 Fury AI – Gemini-Inspired Voice Assistant
 
 A premium, production-ready AI Voice Assistant with a stunning Gemini-inspired interface.  
-**Talk to Aria** → Get a smart **voice reply** in real-time — all from your browser.
+**Talk to Fury** → Get a smart **voice reply** in real-time — all from your browser.
 
-![Aria AI Redesign](https://raw.githubusercontent.com/fayaz-shaik-27/Voice-Automation/main/frontend/public/sh_aria_ui.png) 
+![Fury AI Redesign](https://raw.githubusercontent.com/fayaz-shaik-27/Voice-Automation/main/frontend/public/sh_aria_ui.png) 
 *(Replace with your actual hosted screenshot later)*
 
 ---
