@@ -8,12 +8,13 @@
 
 ## ✨ Features
 
+- 🌊 **Organic Audio Visualizer** – Real-time, reactive waveforms for both user input and AI speech.
 - 🎙️ **Voice Input & Output** – Hands-free interaction directly in your browser.
 - 🔐 **Secure Authentication** – Personal accounts powered by **Supabase Auth**.
-- 🧠 **Persistent History** – Never lose a conversation. History is saved to a cloud database and tied to your account.
+- 🧠 **Multi-Session History** – Persistent, session-based chat threads. Browse, resume, or delete past conversations.
 - 🚀 **High Performance** – Powered by **Groq's** lightning-fast Llama 3.3 and Whisper models.
 - 🔊 **Human-like Voice** – High-quality neural text-to-speech using **edge-tts**.
-- 📱 **Responsive Design** – Premium dark-themed, glassmorphism UI that works on mobile and desktop.
+- 📱 **Responsive Design** – Premium dark-themed, glassmorphism UI with custom branding.
 - 📧 **Verification Emails** – Secure account verification via **Resend**.
 
 ---
@@ -30,6 +31,7 @@
 | **STT (Speech)** | `Groq Whisper-v3` | Near-instant voice-to-text transcription |
 | **LLM (AI)** | `Groq Llama 3.3-70b` | High-intelligence reasoning and responses |
 | **TTS (Speech)** | `edge-tts` | Microsoft Azure Neural voices for natural speech |
+| **Visualizer** | `Web Audio API` | Real-time frequency analysis & organic waveforms |
 
 ---
 
