@@ -190,3 +190,16 @@ def get_sessions(access_token: str, user_id: str) -> list[dict]:
     except Exception as e:
         logger.error(f"get_sessions error: {e}")
         return []
+def delete_history_session(access_token: str, user_id: str, session_id: str) -> None:
+    """
+    Deletes all messages associated with a specific session for the user.
+    """
+    try:
+        opts = ClientOptions(headers={"Authorization": f"Bearer {access_token}"})
+        user_client: Client = create_client(SUPABASE_URL, SUPABASE_KEY, options=opts)
+        
+        user_client.table("chat_history").delete().eq("user_id", user_id).eq("session_id", session_id).execute()
+        logger.info(f"Deleted session {session_id} for user {user_id}")
+    except Exception as e:
+        logger.error(f"delete_history_session error: {e}")
+        raise

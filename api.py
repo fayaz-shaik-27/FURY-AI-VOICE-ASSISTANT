@@ -130,7 +130,22 @@ async def get_history(session_id: Optional[str] = None, authorization: Optional[
     return {"history": history}
 
 
-# ── Voice Processing ──────────────────────────────────────────────────────────
+@app.delete("/api/auth/sessions/{session_id}")
+async def delete_session(session_id: str, authorization: Optional[str] = Header(None)):
+    """Deletes a specific chat session for the user."""
+    token = _get_token(authorization)
+    user = auth.get_user(token)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid token or user session.")
+    try:
+        auth.delete_history_session(token, user["id"], session_id)
+        return {"status": "success", "message": "Session deleted permanently."}
+    except Exception as e:
+        logger.error(f"Error deleting session {session_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to delete session.")
+
+
+# ── Voice Processing Routes ──────────────────────────────────────────────────
 
 
 @app.post("/api/voice/process", response_model=VoiceResponse)
@@ -256,5 +271,7 @@ if os.path.exists(FRONTEND_DIST):
 
 if __name__ == "__main__":
     import uvicorn
+    # Use 127.0.0.1 for local dev to ensure perfect mapping with Vite proxy
     port = int(os.getenv("PORT", 8000))
-    uvicorn.run("api:app", host="0.0.0.0", port=port, reload=False)
+    logger.info(f"Starting Fury AI Backend on http://127.0.0.1:{port}")
+    uvicorn.run(app, host="127.0.0.1", port=port, log_level="info")

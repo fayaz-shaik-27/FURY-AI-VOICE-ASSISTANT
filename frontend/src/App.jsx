@@ -1,20 +1,71 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 
-// ── Waveform Animation Component ─────────────────────────────────────────────
-function VoiceWaveform({ active, color = '#8ab4f8' }) {
+function VoiceWaveform({ active, color = '#8ab4f8', analyser }) {
   const NUM_BARS = 28;
+  const barsRef = useRef([]);
+  // Store the current "decayed" heights to create organic movement
+  const currentHeights = useRef(new Float32Array(NUM_BARS));
+
+  useEffect(() => {
+    if (!active || !analyser) {
+      // Smoothly return to baseline when idle
+      barsRef.current.forEach((bar, i) => { 
+        if (bar) bar.style.height = '4px'; 
+        currentHeights.current[i] = 0;
+      });
+      return;
+    }
+
+    let animationId;
+    const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+    const update = () => {
+      analyser.getByteFrequencyData(dataArray);
+      
+      for (let i = 0; i < NUM_BARS; i++) {
+        const bar = barsRef.current[i];
+        if (!bar) continue;
+
+        // Symmetric frequency mapping: Lows in the middle, Highs on the ends
+        const centerOffset = Math.abs(i - (NUM_BARS - 1) / 2);
+        // Map to frequency bins (using lower/mid range for better visibility)
+        const freqIndex = Math.floor(Math.pow(centerOffset / (NUM_BARS / 2), 1.5) * (dataArray.length / 4));
+        const rawVal = dataArray[freqIndex] || 0;
+        
+        // Target height based on volume (0 to 64px)
+        const targetHeight = (rawVal / 255) * 60;
+        
+        let h = currentHeights.current[i];
+        if (targetHeight > h) {
+          // Fast Attack: Jump up to the new peak
+          h = targetHeight;
+        } else {
+          // Gravity Decay: Fall back down slowly for a fluid feel
+          h -= (h - targetHeight) * 0.15;
+        }
+        
+        currentHeights.current[i] = h;
+        // Apply with a tiny bit of random jitter for the "alive" feel
+        const jitter = (Math.random() - 0.5) * 1.5;
+        bar.style.height = `${Math.max(4, h + jitter)}px`;
+      }
+      animationId = requestAnimationFrame(update);
+    };
+
+    update();
+    return () => cancelAnimationFrame(animationId);
+  }, [active, analyser]);
+
   return (
     <div className="waveform-container" aria-hidden="true">
       {Array.from({ length: NUM_BARS }).map((_, i) => (
         <div
           key={i}
+          ref={el => (barsRef.current[i] = el)}
           className="waveform-bar"
           style={{
             background: color,
-            animationDelay: `${(i * 80) % 700}ms`,
-            animationDuration: `${600 + (i * 97) % 500}ms`,
-            animationPlayState: active ? 'running' : 'paused',
-            height: active ? undefined : '4px',
+            height: '4px', // Start at baseline
           }}
         />
       ))}
@@ -121,7 +172,7 @@ function AuthScreen({ onAuthSuccess }) {
     <div className="auth-screen">
       <div className="auth-card">
         <div className="auth-logo">
-          <div className="logo-gem" />
+          <img src="/logo.png" alt="FuryAI Logo" className="logo-img" />
           <span className="logo-text">Fury <span className="logo-sub">AI</span></span>
         </div>
         <p className="auth-tagline">Your personal AI voice assistant</p>
@@ -151,28 +202,60 @@ function AuthScreen({ onAuthSuccess }) {
 }
 
 // ── History View ──────────────────────────────────────────────────────────────
-function HistoryView({ accessToken, onSessionSelect, onBack }) {
+function HistoryView({ accessToken, onSessionSelect, onBack, onUnauthorized }) {
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [sessionToDelete, setSessionToDelete] = useState(null);
+
+  const loadSessions = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch('/api/auth/sessions', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (res.status === 401) {
+        if (onUnauthorized) onUnauthorized();
+        return;
+      }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Failed to load sessions.');
+      setSessions(data.sessions || []);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const loadSessions = async () => {
-      try {
-        const res = await fetch('/api/auth/sessions', {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || 'Failed to load sessions.');
-        setSessions(data.sessions || []);
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
     loadSessions();
   }, [accessToken]);
+
+  const handleDeleteSession = async (e, sessionId) => {
+    e.stopPropagation(); // Prevents card click
+    setSessionToDelete(sessionId);
+  };
+
+  const confirmDelete = async () => {
+    if (!sessionToDelete) return;
+    try {
+      const res = await fetch(`/api/auth/sessions/${sessionToDelete}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (res.ok) {
+        setSessions(prev => prev.filter(s => s.session_id !== sessionToDelete));
+        setSessionToDelete(null);
+      } else {
+        const data = await res.json();
+        alert(data.detail || "Failed to delete session.");
+      }
+    } catch (err) {
+      alert("Error: " + err.message);
+    }
+  };
+
 
   return (
     <div className="history-view">
@@ -220,28 +303,51 @@ function HistoryView({ accessToken, onSessionSelect, onBack }) {
             <p className="history-empty-sub">Start a chat to see it listed here!</p>
           </div>
         )}
-
         {!loading && !error && sessions.map((session) => (
-          <button 
-            key={session.session_id} 
-            className="session-card"
-            onClick={() => onSessionSelect(session.session_id)}
-          >
-            <div className="session-card-info">
-              <h3 className="session-card-title">{session.session_title || "New Conversation"}</h3>
-              <p className="session-card-preview">{session.last_message}</p>
-            </div>
-            <div className="session-card-meta">
-              <span className="session-card-date">
-                {new Date(session.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-              </span>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" />
-              </svg>
-            </div>
-          </button>
+          <div key={session.session_id} className="session-card-wrapper">
+            <button 
+              className="session-card"
+              onClick={() => onSessionSelect(session.session_id)}
+            >
+              <div className="session-card-info">
+                <h3 className="session-card-title">{session.session_title || "New Conversation"}</h3>
+                <p className="session-card-preview">{session.last_message}</p>
+              </div>
+              <div className="session-card-meta">
+                <span className="session-card-date">
+                  {new Date(session.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                </span>
+                <div 
+                  className="session-card-delete-inline" 
+                  onClick={(e) => handleDeleteSession(e, session.session_id)}
+                  title="Delete conversation"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" />
+                  </svg>
+                </div>
+                <svg className="card-arrow" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" />
+                </svg>
+              </div>
+            </button>
+          </div>
         ))}
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {sessionToDelete && (
+        <div className="confirm-overlay">
+          <div className="confirm-dialog">
+            <h3>Delete Conversation?</h3>
+            <p>This will permanently remove this chat history. This action cannot be undone.</p>
+            <div className="confirm-actions">
+              <button className="confirm-btn-cancel" onClick={() => setSessionToDelete(null)}>Cancel</button>
+              <button className="confirm-btn-delete" onClick={confirmDelete}>Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -256,11 +362,35 @@ export default function App() {
   const [statusText, setStatusText] = useState('Tap the microphone to begin');
   const [error, setError] = useState('');
   const [currentSessionId, setCurrentSessionId] = useState(crypto.randomUUID());
+  const [sessionToDelete, setSessionToDelete] = useState(null); // Used for history view and current session deletion
 
   const mediaRecorderRef = useRef(null);
-  const audioChunksRef = useRef([]);
+  const audioChunksRef = useRef(null);
   const chatEndRef = useRef(null);
-  const audioRef = useRef(null);
+  const audioRef = useRef(new Audio()); // Reuse one audio instance for better visualizer performance
+  const audioCtxRef = useRef(null);
+  const analyserRef = useRef(null);
+  const micSourceRef = useRef(null);
+  const aiSourceRef = useRef(null);
+
+  // Initialize Audio Context on first interaction
+  const initAudio = () => {
+    if (audioCtxRef.current) return;
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 512; // Higher resolution for more "life"
+    analyser.smoothingTimeConstant = 0.4; // Responsive smoothing balance
+    audioCtxRef.current = ctx;
+    analyserRef.current = analyser;
+
+    // Connect AI audio element once
+    if (audioRef.current) {
+      const source = ctx.createMediaElementSource(audioRef.current);
+      source.connect(analyser);
+      analyser.connect(ctx.destination);
+      aiSourceRef.current = source;
+    }
+  };
 
   // Auto-login from localStorage
   useEffect(() => {
@@ -277,27 +407,12 @@ export default function App() {
     }
   }, []);
 
-  // Load latest chat on startup
+  // Initialize fresh chat on startup
   useEffect(() => {
     if (!user || !accessToken) return;
-    const initChat = async () => {
-      try {
-        // Fetch sessions to find the most recent one
-        const res = await fetch('/api/auth/sessions', {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
-        const data = await res.json();
-        if (data.sessions && data.sessions.length > 0) {
-          const latest = data.sessions[0];
-          handleSessionSelect(latest.session_id);
-        } else {
-          setHistory([{ role: 'ai', text: `Hi! I'm Fury AI, your voice assistant. Try saying something!` }]);
-        }
-      } catch {
-        setHistory([{ role: 'ai', text: `Welcome! Feel free to talk to me about anything.` }]);
-      }
-    };
-    initChat();
+    if (history.length === 0) {
+      setHistory([{ role: 'ai', text: `Hi! I'm Fury AI, your voice assistant. Try saying something!` }]);
+    }
   }, [user, accessToken]);
 
   // Auto-scroll chat
@@ -313,6 +428,10 @@ export default function App() {
       const res = await fetch(`/api/auth/history?session_id=${sessionId}`, {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
+      if (res.status === 401) {
+        handleLogout();
+        return;
+      }
       const data = await res.json();
       if (data.history) {
         setHistory(data.history.map((h) => ({
@@ -350,18 +469,35 @@ export default function App() {
     setHistory([]);
     setOrbState('idle');
     setView('chat');
+    setCurrentSessionId(crypto.randomUUID());
   };
 
   const startRecording = useCallback(async () => {
     setError('');
+    initAudio();
+    if (audioCtxRef.current.state === 'suspended') {
+      await audioCtxRef.current.resume();
+    }
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      
+      // Connect mic to visualizer
+      if (micSourceRef.current) micSourceRef.current.disconnect();
+      const source = audioCtxRef.current.createMediaStreamSource(stream);
+      source.connect(analyserRef.current);
+      micSourceRef.current = source;
+
       const options = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? { mimeType: 'audio/webm;codecs=opus' } : {};
       mediaRecorderRef.current = new MediaRecorder(stream, options);
       audioChunksRef.current = [];
       mediaRecorderRef.current.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
       mediaRecorderRef.current.onstop = async () => {
         stream.getTracks().forEach((t) => t.stop());
+        if (micSourceRef.current) {
+          micSourceRef.current.disconnect();
+          micSourceRef.current = null;
+        }
         await processVoice(new Blob(audioChunksRef.current, { type: 'audio/webm' }));
       };
       mediaRecorderRef.current.start(200);
@@ -393,6 +529,10 @@ export default function App() {
         },
         body: formData,
       });
+      if (res.status === 401) {
+        handleLogout();
+        return;
+      }
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
         throw new Error(errData.detail || `Server error ${res.status}`);
@@ -402,11 +542,16 @@ export default function App() {
       if (data.audio_base64) {
         setOrbState('speaking');
         setStatusText('Fury AI is speaking…');
-        const audio = new Audio(`data:audio/mp3;base64,${data.audio_base64}`);
-        audioRef.current = audio;
-        audio.onended = () => { setOrbState('idle'); setStatusText('Tap the microphone to begin'); };
-        audio.onerror = () => { setOrbState('idle'); setStatusText('Tap the microphone to begin'); };
-        audio.play().catch(() => { });
+        
+        // Update reused audio element instead of creating new one
+        if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
+          await audioCtxRef.current.resume();
+        }
+        
+        audioRef.current.src = `data:audio/mp3;base64,${data.audio_base64}`;
+        audioRef.current.onended = () => { setOrbState('idle'); setStatusText('Tap the microphone to begin'); };
+        audioRef.current.onerror = () => { setOrbState('idle'); setStatusText('Tap the microphone to begin'); };
+        audioRef.current.play().catch(() => { });
       } else {
         setOrbState('idle');
         setStatusText('Tap the microphone to begin');
@@ -422,6 +567,8 @@ export default function App() {
   const stopSpeaking = () => { if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; } setOrbState('idle'); setStatusText('Tap the microphone to begin'); };
   const clearHistory = () => setHistory([{ role: 'ai', text: 'Conversation cleared. How can I help you?' }]);
 
+
+
   // ── Auth Screen ──────────────────────────────────────────────────────────
   if (!user) return <AuthScreen onAuthSuccess={handleAuthSuccess} />;
 
@@ -431,7 +578,7 @@ export default function App() {
       <div className="app">
         <header className="app-header">
           <div className="logo">
-            <div className="logo-gem" />
+            <img src="/logo.png" alt="FuryAI Logo" className="logo-img" />
             <span className="logo-text">Fury <span className="logo-sub">AI</span></span>
           </div>
           <nav className="header-nav">
@@ -451,6 +598,7 @@ export default function App() {
           accessToken={accessToken} 
           onSessionSelect={handleSessionSelect}
           onBack={() => setView('chat')} 
+          onUnauthorized={handleLogout}
         />
         <footer className="app-footer">
           <p>© 2026 Fayaz Ahmed Shaik. All rights reserved.</p>
@@ -464,7 +612,7 @@ export default function App() {
     <div className="app">
       <header className="app-header">
         <div className="logo">
-          <div className="logo-gem" />
+          <img src="/logo.png" alt="FuryAI Logo" className="logo-img" />
           <span className="logo-text">Fury <span className="logo-sub">AI</span></span>
         </div>
         <nav className="header-nav">
@@ -508,7 +656,7 @@ export default function App() {
         </section>
         <section className="voice-stage">
           <div className={`waveform-area waveform-top ${orbState === 'recording' ? 'wf-visible' : ''}`}>
-            <VoiceWaveform active={orbState === 'recording'} color="#ea4335" />
+            <VoiceWaveform active={orbState === 'recording'} color="#ea4335" analyser={analyserRef.current} />
           </div>
           <button
             className={`orb-btn ${orbState === 'processing' ? 'orb-btn-inactive' : ''}`}
@@ -519,7 +667,7 @@ export default function App() {
             <GeminiOrb state={orbState} />
           </button>
           <div className={`waveform-area waveform-bottom ${orbState === 'speaking' ? 'wf-visible' : ''}`}>
-            <VoiceWaveform active={orbState === 'speaking'} color="#8ab4f8" />
+            <VoiceWaveform active={orbState === 'speaking'} color="#8ab4f8" analyser={analyserRef.current} />
           </div>
           <p className="status-text">{statusText}</p>
           {error && (

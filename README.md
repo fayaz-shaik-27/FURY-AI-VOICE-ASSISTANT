@@ -57,11 +57,13 @@ cd ..
 2. Go to the **SQL Editor** and run the following to create the history table:
 ```sql
 CREATE TABLE chat_history (
-  id          BIGSERIAL PRIMARY KEY,
-  user_id     UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-  role        TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
-  message     TEXT NOT NULL,
-  created_at  TIMESTAMPTZ DEFAULT NOW()
+  id             BIGSERIAL PRIMARY KEY,
+  user_id        UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  session_id     TEXT NOT NULL,
+  session_title  TEXT,
+  role           TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
+  message        TEXT NOT NULL,
+  created_at     TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Enable Row Level Security
