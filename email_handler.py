@@ -58,7 +58,7 @@ def send_welcome_email(receiver_email: str) -> bool:
         params = {
             "from": "Fury AI <onboarding@resend.dev>",
             "to": [receiver_email],
-            "subject": "Welcome to Fury AI! 🚀",
+            "subject": "Welcome to Fury AI!",
             "html": f"""
             <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
                 <h2 style="color: #4285f4; text-align: center;">You're All Set!</h2>
