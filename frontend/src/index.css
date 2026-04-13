@@ -496,6 +496,38 @@ html, body, #root {
   box-shadow: 0 0 0 3px rgba(138,180,248,0.08);
 }
 
+.password-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.password-input-wrapper .auth-input {
+  padding-right: 48px; /* Space for the eye button */
+}
+
+.password-toggle {
+  position: absolute;
+  right: 12px;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  border-radius: 8px;
+  transition: var(--transition);
+  opacity: 0.6;
+}
+
+.password-toggle:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
+}
+
 .auth-btn {
   margin-top: 6px;
   width: 100%;
