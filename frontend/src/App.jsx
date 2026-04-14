@@ -668,7 +668,7 @@ export default function App() {
   };
 
   const handleMicClick = () => { if (orbState === 'recording') stopRecording(); else if (orbState === 'idle') startRecording(); };
-  const stopSpeaking = () => { if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; } setOrbState('idle'); setStatusText('Tap the microphone to begin'); };
+  const stopSpeaking = () => { if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; } setOrbState('idle'); setStatusText('Tap the microphone to begin'); };
   const clearHistory = () => setHistory([{ role: 'ai', text: 'Conversation cleared. How can I help you?' }]);
 
 
