@@ -28,13 +28,13 @@
 
 html, body, #root {
   height: 100%;
-  height: 100dvh; /* Use dynamic viewport height for mobile */
+  height: 100dvh;
   width: 100%;
   font-family: var(--font-main);
   color: var(--text-primary);
   background: var(--bg-deep);
   overflow: hidden;
-  position: fixed; /* Prevent body scroll/bounce on iOS */
+  /* Remove position: fixed as it can cause issues on some devices */
 }
 
 /* ── App Shell ────────────────────────────────────────────────────────────── */
@@ -55,13 +55,14 @@ html, body, #root {
   align-items: center;
   justify-content: space-between;
   padding: 14px 28px;
-  /* Support for notches and status bars */
-  padding-top: calc(14px + env(safe-area-inset-top, 0px));
+  /* Push content down further for mobile safe areas */
+  padding-top: calc(max(14px, env(safe-area-inset-top, 0px)) + 4px);
   border-bottom: 1px solid var(--border);
-  background: rgba(13,13,20,0.85);
+  background: rgba(13,13,20,0.95); /* Slightly more opaque */
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
-  z-index: 10;
+  z-index: 100; /* Higher z-index */
+  flex-shrink: 0; /* PREVENT HEADER FROM SQUASHING */
   transition: padding var(--transition);
 }
 
@@ -132,6 +133,7 @@ html, body, #root {
   display: flex;
   flex: 1;
   overflow: hidden;
+  min-height: 0; /* Critical for flex inner scrolling */
 }
 
 /* ── Chat Section ─────────────────────────────────────────────────────────── */
