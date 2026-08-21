@@ -9,15 +9,15 @@ uvicorn>=0.23.0
 python-multipart>=0.0.6
 
 # ── Text-to-Speech ────────────────────────────────────────────
-edge-tts
+edge-tts>=0.2.0
 
 # ── AI / LLM + Whisper STT (Groq — completely free tier) ─────
-# Groq provides both LLM (Llama 3) and Whisper STT via cloud API.
+# Groq provides both LLM and Whisper STT via cloud API.
 # No PyTorch or local model downloads needed — keeps memory tiny.
-groq
+groq>=0.1.0
 
 # ── Environment variable management ──────────────────────────
-python-dotenv
+python-dotenv>=1.0.0
 
 # ── Supabase (Auth + Database) ────────────────────────────────
 supabase>=2.0.0

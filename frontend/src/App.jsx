@@ -487,6 +487,18 @@ function HistoryView({ accessToken, onSessionSelect, onBack, onUnauthorized }) {
   );
 }
 
+// ── UUID Generator Helper (Supports non-HTTPS contexts) ────────────────────────
+function generateUUID() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
 // ── Main App ──────────────────────────────────────────────────────────────────
 export default function App() {
   const [user, setUser] = useState(null);
@@ -496,7 +508,7 @@ export default function App() {
   const [history, setHistory] = useState([]);
   const [statusText, setStatusText] = useState('Tap the microphone to begin');
   const [error, setError] = useState('');
-  const [currentSessionId, setCurrentSessionId] = useState(crypto.randomUUID());
+  const [currentSessionId, setCurrentSessionId] = useState(generateUUID());
   const [sessionToDelete, setSessionToDelete] = useState(null); // Used for history view and current session deletion
   const [pendingImage, setPendingImage] = useState(null); // {file, preview}
 
@@ -509,6 +521,8 @@ export default function App() {
   const analyserRef = useRef(null);
   const micSourceRef = useRef(null);
   const aiSourceRef = useRef(null);
+  // Ref mirror of pendingImage so async callbacks (onstop) always read the latest value
+  const pendingImageRef = useRef(null);
 
   // Initialize Audio Context on first interaction
   const initAudio = () => {
@@ -552,6 +566,11 @@ export default function App() {
     }
   }, [user, accessToken]);
 
+  // Keep pendingImageRef in sync with pendingImage state
+  useEffect(() => {
+    pendingImageRef.current = pendingImage;
+  }, [pendingImage]);
+
   // Auto-scroll chat
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -582,7 +601,7 @@ export default function App() {
   };
 
   const startNewChat = () => {
-    setCurrentSessionId(crypto.randomUUID());
+    setCurrentSessionId(generateUUID());
     setHistory([{ role: 'ai', text: "New conversation started! How can I help you today?" }]);
     setView('chat');
   };
@@ -606,7 +625,7 @@ export default function App() {
     setHistory([]);
     setOrbState('idle');
     setView('chat');
-    setCurrentSessionId(crypto.randomUUID());
+    setCurrentSessionId(generateUUID());
   };
 
   const startRecording = useCallback(async () => {
@@ -625,6 +644,12 @@ export default function App() {
       source.connect(analyserRef.current);
       micSourceRef.current = source;
 
+      // Capture image NOW (before onstop fires) so the ref value is stable
+      const capturedImage = pendingImageRef.current;
+      if (capturedImage) {
+        setPendingImage(null); // Clear preview bar immediately once recording starts
+      }
+
       const options = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? { mimeType: 'audio/webm;codecs=opus' } : {};
       mediaRecorderRef.current = new MediaRecorder(stream, options);
       audioChunksRef.current = [];
@@ -635,7 +660,8 @@ export default function App() {
           micSourceRef.current.disconnect();
           micSourceRef.current = null;
         }
-        await processVoice(new Blob(audioChunksRef.current, { type: 'audio/webm' }));
+        // Pass the image that was attached when recording started
+        await processVoice(new Blob(audioChunksRef.current, { type: 'audio/webm' }), capturedImage);
       };
       mediaRecorderRef.current.start(200);
       setOrbState('recording');
@@ -654,14 +680,15 @@ export default function App() {
     }
   }, []);
 
-  const processVoice = async (blob) => {
+  const processVoice = async (blob, capturedImage) => {
     const formData = new FormData();
     if (blob) formData.append('file', blob, 'voice.webm');
-    // Attach pending image if exists
-    const imagePreview = pendingImage?.preview || null;
-    if (pendingImage?.file) {
-      formData.append('image', pendingImage.file);
-      setPendingImage(null); // Clear after attaching
+    // Use explicitly passed capturedImage (from recording start), or fall back to current pendingImage (for sendImageOnly)
+    const imageToSend = capturedImage ?? pendingImage;
+    const imagePreview = imageToSend?.preview || null;
+    if (imageToSend?.file) {
+      formData.append('image', imageToSend.file);
+      if (!capturedImage) setPendingImage(null); // Only clear state here if not already cleared at recording start
     }
     try {
       const res = await fetch('/api/voice/process', {
@@ -715,12 +742,34 @@ export default function App() {
       setError('Please select an image file (JPEG, PNG, etc.)');
       return;
     }
-    if (file.size > 10 * 1024 * 1024) {
-      setError('Image must be under 10MB.');
+    if (file.size > 20 * 1024 * 1024) {
+      setError('Image must be under 20MB.');
       return;
     }
-    const preview = URL.createObjectURL(file);
-    setPendingImage({ file, preview });
+
+    // Compress image client-side to avoid 413 errors and slow vision responses (max 512px, JPEG 70%)
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const img = new Image();
+      img.onload = () => {
+        const MAX = 512;
+        let { width, height } = img;
+        if (width > MAX || height > MAX) {
+          if (width > height) { height = Math.round((height / width) * MAX); width = MAX; }
+          else { width = Math.round((width / height) * MAX); height = MAX; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        canvas.toBlob((blob) => {
+          const compressedFile = new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' });
+          const preview = URL.createObjectURL(compressedFile);
+          setPendingImage({ file: compressedFile, preview });
+        }, 'image/jpeg', 0.70);
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
     e.target.value = ''; // Reset so same file can be re-selected
   };
 

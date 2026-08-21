@@ -15,8 +15,11 @@ from groq import Groq
 
 logger = logging.getLogger(__name__)
 
-# Groq client — uses GROQ_API_KEY from .env
-_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+def _get_client() -> Groq:
+    key = os.getenv("GROQ_API_KEY")
+    if not key:
+        raise ValueError("GROQ_API_KEY is not configured in environment variables.")
+    return Groq(api_key=key)
 
 # Groq supports: whisper-large-v3, whisper-large-v3-turbo, distil-whisper-large-v3-en
 _WHISPER_MODEL = os.getenv("WHISPER_MODEL", "whisper-large-v3-turbo")
@@ -36,9 +39,10 @@ def transcribe(audio_path: str) -> str:
     try:
         logger.info(f"Transcribing via Groq Whisper: {audio_path}")
 
+        client = _get_client()
         with open(audio_path, "rb") as audio_file:
             filename = os.path.basename(audio_path)
-            transcription = _client.audio.transcriptions.create(
+            transcription = client.audio.transcriptions.create(
                 file=(filename, audio_file.read()),
                 model=_WHISPER_MODEL,
                 response_format="text",

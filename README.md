@@ -108,21 +108,38 @@ CREATE POLICY "Users can access own history"
 3. Add your Brevo SMTP login and password to the `.env` file.
 
 ### 5. Configuration
-Copy `.env.sample` to `.env` and fill in your values:
+Copy `.env.sample` to `.env` and fill in your values.
+
+On macOS / Linux:
 ```bash
 cp .env.sample .env
 ```
 
+On Windows (PowerShell):
+```powershell
+Copy-Item .env.sample -Destination .env
+```
+
+Then open `.env` and fill values. Example `.env` entries:
+
 ```env
+# ── Server ─────────────────────────────────────────────────────
+# Optional: port the backend should listen on (default 8000)
+PORT=8000
+
 # ── AI (Groq – Free Tier) ─────────────────────────────────────
 GROQ_API_KEY=your_groq_api_key_here
+# Recommended models (provider-dependent): llama-3.1-8b-instant | openai/gpt-oss-120b
 GROQ_MODEL=llama-3.1-8b-instant
+# Vision model used for image understanding
+GROQ_VISION_MODEL=qwen/qwen3.6-27b
+# Whisper STT model
 WHISPER_MODEL=whisper-large-v3-turbo
 ASSISTANT_NAME=Fury AI
 
 # ── Text-to-Speech (edge-tts) ─────────────────────────────────
 TTS_VOICE=en-US-AriaNeural
-TTS_RATE=-50%
+TTS_RATE=+30%
 
 # ── Supabase (Auth + Database) ────────────────────────────────
 SUPABASE_URL=https://your-project-id.supabase.co

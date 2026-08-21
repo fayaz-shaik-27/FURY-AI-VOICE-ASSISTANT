@@ -13,6 +13,8 @@ Sign up at: https://console.groq.com/
 """
 
 import os
+import re
+import time
 import logging
 from collections import defaultdict
 from datetime import datetime
@@ -23,9 +25,29 @@ logger = logging.getLogger(__name__)
 # ──────────────────────────────────────────────────────────────
 #  Groq client – uses GROQ_API_KEY from .env automatically
 # ──────────────────────────────────────────────────────────────
-_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-_MODEL = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
+def _get_client() -> Groq:
+    key = os.getenv("GROQ_API_KEY")
+    if not key:
+        raise ValueError("GROQ_API_KEY is not configured in environment variables.")
+    return Groq(api_key=key)
+
+def _clean_response_text(text: str) -> str:
+    """Strips internal reasoning <think>...</think> tags and extra whitespace."""
+    if not text:
+        return ""
+    cleaned = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
+    if "<think>" in cleaned:
+        parts = cleaned.split("<think>")
+        cleaned = parts[0].strip()
+    return cleaned
+
+_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 _ASSISTANT_NAME = os.getenv("ASSISTANT_NAME", "Fury AI")
+
+# Fallback model chain – cycled through automatically on any transient error
+# (rate limits, output_parse_failed, overloaded, etc.)
+_FALLBACK_MODELS_TEXT = ["openai/gpt-oss-20b", "groq/compound", "groq/compound-mini"]
+_FALLBACK_MODELS_VISION = [os.getenv("GROQ_VISION_MODEL", "qwen/qwen3.6-27b")]  # vision only has one option
 
 # ──────────────────────────────────────────────────────────────
 #  System prompt – personality & instructions for the LLM
@@ -57,7 +79,7 @@ Today's date is {datetime.now().strftime("%A, %B %d, %Y")}.
 _memory: dict[str | int, list[dict]] = defaultdict(list)
 
 # How many past messages to keep per user (controls context window)
-_MAX_HISTORY_PAIRS = 10  # 10 pairs = 20 messages kept
+_MAX_HISTORY_PAIRS = 4  # 4 pairs = 8 messages kept (keeps token footprint low to avoid 429 rate limits)
 
 
 # ──────────────────────────────────────────────────────────────
@@ -145,16 +167,16 @@ def generate_session_title(user_text: str) -> str:
     """
     try:
         prompt = f"Generate a 3 to 4 word title for a conversation that starts with: '{user_text}'. Return ONLY the title, no quotes or punctuation."
-        response = _client.chat.completions.create(
+        response = _get_client().chat.completions.create(
             model=_MODEL,
             messages=[{"role": "user", "content": prompt}],
             max_tokens=20,
             temperature=0.5
         )
-        title = response.choices[0].message.content.strip()
-        # Clean up in case LLM added quotes
-        title = title.replace('"', '').replace("'", "")
-        return title
+        title = _clean_response_text(response.choices[0].message.content)
+        # Clean up in case LLM added quotes or extra formatting
+        title = title.replace('"', '').replace("'", "").split("\n")[0].strip()
+        return title or "New Conversation"
     except Exception as e:
         logger.error(f"Title generation failed: {e}")
         return "New Conversation"
@@ -164,7 +186,7 @@ def generate_session_title(user_text: str) -> str:
 #  Main AI response function
 # ──────────────────────────────────────────────────────────────
 
-_VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct"
+_VISION_MODEL = os.getenv("GROQ_VISION_MODEL", "qwen/qwen3.6-27b")
 
 def generate_response(session_id: str, user_text: str, image_data: str = None) -> str:
     """
@@ -206,28 +228,119 @@ def generate_response(session_id: str, user_text: str, image_data: str = None) -
     add_to_history(session_id, "user", user_text)
 
     # Build history (excluding current turn which we handle specially if it has an image)
-    history = get_history(session_id)[:-1] # All except the one we just added
+    raw_history = get_history(session_id)[:-1] # All except the one we just added
     
+    # Filter out old fallback error messages that contaminate vision context
+    history = []
+    for m in raw_history:
+        if m.get("role") == "assistant":
+            c_lower = (m.get("content") or "").lower()
+            if "hiccup" in c_lower or ("see" in c_lower and "image" in c_lower) or ("view" in c_lower and "image" in c_lower):
+                continue
+        history.append(m)
+
     messages = [{"role": "system", "content": _SYSTEM_PROMPT}] + history + [current_user_msg]
 
     try:
-        response = _client.chat.completions.create(
+        response = _get_client().chat.completions.create(
             model=current_model,
             messages=messages,
-            max_tokens=300 if image_data else 150, # More tokens for image descriptions
-            temperature=0.75,
             top_p=0.9,
+            max_tokens=2500 if image_data else 300,  # Vision models (qwen) need large budget to finish <think> + answer
         )
 
-        reply = response.choices[0].message.content.strip()
+        reply = _clean_response_text(response.choices[0].message.content)
+        
+        # If vision model returned empty (reasoning tokens exhausted), retry with more budget
+        if not reply and image_data:
+            logger.warning(f"Vision model returned empty for session {session_id}, retrying with higher token budget...")
+            try:
+                retry_response = _get_client().chat.completions.create(
+                    model=current_model,
+                    messages=messages,
+                    max_tokens=3000,
+                    temperature=0.5,
+                )
+                reply = _clean_response_text(retry_response.choices[0].message.content)
+            except Exception as retry_err:
+                logger.warning(f"Vision retry failed: {retry_err}")
+
+        if not reply and image_data:
+            reply = "I see the image you uploaded! What specific details or questions do you have about it?"
+
         logger.info(f"AI reply for session {session_id}: '{reply[:80]}'")
 
         # Store assistant's reply in memory for next turn
         add_to_history(session_id, "assistant", reply)
 
+        # ── Image context injection ────────────────────────────────────────────
+        # After a successful image analysis, inject the AI's description as a
+        # hidden [Image context] note so follow-up questions (without image data)
+        # still have full context of what was in the image.
+        if image_data and reply and "I see the image you uploaded" not in reply:
+            context_note = f"[Image context from previous turn: {reply}]"
+            add_to_history(session_id, "assistant", context_note)
+
         return reply
 
     except Exception as e:
+        err_str = str(e).lower()
+
+        # ── Unified Transient Error Retry ─────────────────────────────────────
+        # Catches: 429 rate limit, 400 output_parse_failed, 503 overloaded, etc.
+        # Cycles through the fallback model list with increasing wait times.
+        is_transient = (
+            "429" in err_str
+            or "rate limit" in err_str
+            or "rate_limit_exceeded" in err_str
+            or "output_parse_failed" in err_str
+            or "overloaded" in err_str
+            or "parsing failed" in err_str
+            or ("400" in err_str and "failed_generation" in err_str)
+        )
+        if is_transient:
+            fallback_list = _FALLBACK_MODELS_VISION if image_data else _FALLBACK_MODELS_TEXT
+            logger.warning(
+                f"Transient Groq error for session {session_id}: {str(e)[:120]}. "
+                f"Retrying across {len(fallback_list)} fallback model(s)..."
+            )
+            for attempt, fb_model in enumerate(fallback_list, start=1):
+                time.sleep(1.0 * attempt)  # 1s, 2s, 3s progressive back-off
+                try:
+                    response = _get_client().chat.completions.create(
+                        model=fb_model,
+                        messages=messages,
+                        max_tokens=800 if image_data else 150,
+                        temperature=0.7,
+                    )
+                    reply = _clean_response_text(response.choices[0].message.content)
+                    if not reply and image_data:
+                        reply = "I see the image you uploaded! What specific details or questions do you have about it?"
+                    if reply:
+                        logger.info(f"Recovered with fallback model '{fb_model}' (attempt {attempt})")
+                        add_to_history(session_id, "assistant", reply)
+                        return reply
+                except Exception as retry_err:
+                    logger.warning(f"Fallback attempt {attempt} ({fb_model}) failed: {retry_err}")
+
+        # ── Fallback: multimodal → plain-text retry ───────────────────────────
+        if image_data and "content must be a string" in err_str:
+            logger.info("Retrying vision prompt as plain text string...")
+            try:
+                fallback_msg = {"role": "user", "content": f"{user_text} [Note: User attached an image file]"}
+                messages[-1] = fallback_msg
+                response = _get_client().chat.completions.create(
+                    model=current_model,
+                    messages=messages,
+                    max_tokens=150,
+                    temperature=0.75,
+                )
+                reply = _clean_response_text(response.choices[0].message.content)
+                add_to_history(session_id, "assistant", reply)
+                return reply
+            except Exception as retry_err:
+                logger.error(f"Vision plain-text retry failed: {retry_err}")
+
         logger.error(f"LLM call failed for session {session_id}: {e}", exc_info=True)
-        # Friendly fallback so the bot doesn't go silent on errors
+        # Final friendly fallback so the bot doesn't go silent on errors
         return "I'm sorry, I ran into a little hiccup. Could you try saying that again?"

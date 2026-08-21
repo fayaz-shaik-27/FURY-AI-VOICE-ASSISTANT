@@ -169,6 +169,8 @@ async def verify_otp(body: OTPRequest):
         if "already signed up" in err_msg or "already registered" in err_msg or "log in" in err_msg:
             del auth._pending_registrations[body.email]
             raise HTTPException(status_code=409, detail="An account with this email already exists. Please log in.")
+        if "email not confirmed" in err_msg:
+            raise HTTPException(status_code=400, detail="Account created, but Supabase requires email confirmation. Please disable 'Confirm email' under Supabase Auth -> Providers -> Email settings.")
         logger.error(f"Account creation failed after OTP verification: {e}")
         raise HTTPException(status_code=500, detail="Verification succeeded but account creation failed. Please try again.")
 
@@ -372,7 +374,7 @@ async def serve_index():
     return {"message": "Fury AI API is live. (Frontend not built yet)"}
 
 if os.path.exists(FRONTEND_DIST):
-    app.mount("/", StaticFiles(directory=FRONTEND_DIST), name="ui")
+    app.mount("/", StaticFiles(directory=FRONTEND_DIST, html=True), name="ui")
 
 
 if __name__ == "__main__":
